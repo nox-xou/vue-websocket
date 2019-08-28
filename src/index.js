@@ -1,55 +1,61 @@
-import IO from "socket.io-client";
+// import IO from "socket.io-client";
 
 export default {
 
-	install(Vue, connection, opts) {
+	install(Vue, connection) {
 
-		let socket;
-
-		if (connection != null && typeof connection === "object")
-			socket = connection;
-		else
-			socket = IO(connection || "", opts);
-
-		Vue.prototype.$socket = socket;
+		Vue.prototype.$socket = connection
 
 		let addListeners = function() {
-			if (this.$options["socket"]) {
-				let conf = this.$options.socket;
-				if (conf.namespace) {
-					this.$socket = IO(conf.namespace, conf.options);
-				}
+			if (this.$options["sockets"]) {
+				let sockets = this.$options.sockets;
+				for (let socket in sockets) {
+					let socketname = socket
+					let conf = sockets[socket]
 
-				if (conf.events) {
-					let prefix = conf.prefix || "";
-					Object.keys(conf.events).forEach((key) => {
-						let func = conf.events[key].bind(this);
-						this.$socket.on(prefix + key, func);
-						conf.events[key].__binded = func;
-					});
+					if (!this.$socket[socketname]) {
+						console.log(`Vue component socket '${socketname}' events has found!. but socket instance plugin not created yet.`)
+						continue
+					}
+
+					if (conf.events) {
+						let prefix = conf.prefix || "";
+						Object.keys(conf.events).forEach((key) => {
+							let func = conf.events[key].bind(this);
+							this.$socket[socketname].on(prefix + key, func);
+							conf.events[key].__binded = func;
+						});
+					}
 				}
 			}
 		};
 
 		let removeListeners = function() {
-			if (this.$options["socket"]) {
-				let conf = this.$options.socket;
+			if (this.$options["sockets"]) {
+				let sockets = this.$options.sockets;
+				for (let socket in sockets) {
+					let socketname = socket
+					let conf = sockets[socket]
 
-				if (conf.namespace) {
-					this.$socket.disconnect();
-				}
+					if (!this.$socket[socketname]) {
+						console.log(`Vue component socket '${socketname}' events has found!. but socket instance plugin not created yet.`)
+						continue
+					}
 
-				if (conf.events) {
-					let prefix = conf.prefix || "";
-					Object.keys(conf.events).forEach((key) => {
-						this.$socket.off(prefix + key, conf.events[key].__binded);
-					});
+					this.$socket[socketname].disconnect();
+
+					if (conf.events) {
+						let prefix = conf.prefix || "";
+						Object.keys(conf.events).forEach((key) => {
+							this.$socket[socketname].off(prefix + key, conf.events[key].__binded);
+						});
+					}
 				}
 			}
 		};
 
 		Vue.mixin({
-			[Vue.version.indexOf("2") === 0 ? "beforeCreate" : "beforeCompile"]: addListeners,
+			[Vue.version.indexOf('2') === 0 ? "beforeCreate" : "beforeCompile"]: addListeners,
 			beforeDestroy: removeListeners
 		});
 
